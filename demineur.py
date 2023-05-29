@@ -8,11 +8,12 @@ import random as rnd
 
 class plateau():
     
-    def init_plat(self, diff: int):
+    def init_plat(self, diff: int, coord: tuple):
         print('diff',diff)
         self.dico = {}
         self.listeb = []
         self.diff = diff
+        self.coord = coord
         self.difficultes = {0: ((9,9), 10), 1: ((16,16), 40), 2:((16, 30), 99)}
         self.gen_dico()
         self.gen_mines()
@@ -23,7 +24,6 @@ class plateau():
         for i in range(self.difficultes[self.diff][0][0]):
             for y in range(self.difficultes[self.diff][0][1]):
                 self.dico[(i, y)] = [0,0,0,0]
-        return self.dico
     
     
     def gen_mines(self):
@@ -31,10 +31,20 @@ class plateau():
         ymax = max([key[1] for key in self.dico.keys()])+1
         nbcases = (xmax)*(ymax)
         liste = [i for i in range(nbcases)]
+        
+        
+        
+        #Sécurisation 1er coup avec pas bombe dans 8 cases autour
+        coinX = self.coord[0]-1
+        coinY = self.coord[1]-1
+
+        for i in range(9):
+            if (((i//3)+coinX, (i%3)+coinY) in self.dico):
+                liste.remove(((i//3)+coinX)*ymax + (i%3)+coinY)
         rnd.shuffle(liste)
         for _ in range(self.difficultes[self.diff][1]):
             nb = liste.pop()
-            self.dico[(nb//(ymax), nb%ymax)][2] = -1
+            self.dico[(nb//(ymax), nb%ymax)][2] = -1  #ligne, colonne ?
             self.listeb.append((nb//(ymax), nb%ymax))
         
     

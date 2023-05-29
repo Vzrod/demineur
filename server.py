@@ -56,11 +56,10 @@ class threadedServer(Thread):
 
 
     def start_game(self):
-        self.game = plateau()
-        self.game.init_plat(0)
+        
         self.timeplayer = 10.1
-        self.game.log_affichage()
         self.data_queue = queue.Queue()
+        self.first_coup = True
         print()
         for client in self.cons_socket:
             try : 
@@ -84,6 +83,9 @@ class threadedServer(Thread):
                 l2_thread.start()
                 l2_thread.join(timeout=int(self.timeplayer)+1)
                 
+                
+                
+                #test si pas de timeout sur le tour du joueur
                 if self.data == 'Lost':
                     print('PLayer Timeout')
                     for client in self.cons_socket:
@@ -92,11 +94,22 @@ class threadedServer(Thread):
                     break
                 
                 else:
-                    d = (self.data).decode('utf-8')
-                    plate_update = self.game.coup(eval(d))
-                    
-                    self.game.affichage()
-                    print()
+                    #Gen plat pour 1er coup sécurisé
+                    if self.first_coup == True:
+                        #gen plat
+                        d = (self.data).decode('utf-8')
+                        self.game = plateau()
+                        self.game.init_plat(0, (eval(d)))
+                        plate_update = self.game.coup(eval(d))
+                        self.game.log_affichage()
+                        
+                        
+                        self.first_coup = False
+                        
+                    else:
+                        d = (self.data).decode('utf-8')
+                        plate_update = self.game.coup(eval(d))
+                        
                     com = b'<CLIENT_UPDATE>'
                     for up in plate_update[0]:
                         com+=b','+up.encode('utf-8')
