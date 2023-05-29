@@ -6,12 +6,6 @@ Created on Sat Apr 22 17:07:31 2023
 
 pyinstaller client.py --onefile --windowed --collect-submodules solar-system
 
-
-!!!!!!!!!!!!!!!! close file when window close
-
-
-!!! reload server apres fin + close socket car socket.close marche pas a cause de thread listening
-
 """
 
 import socket
@@ -29,6 +23,7 @@ class threadedClient(Thread):
         tgui = Thread(target = self.affichage_fen) #Démarre la connection de la fonction conn sur un thread afin de ne pas freeze le gui
         tgui.start()
         
+        #Association header recu par le serveur et fonction à lancer en conséquence
         
         self.game_init = [False, b'GAME_INIT', self.start_game]
         self.turn_cond = [False, b'GAME_TURN', self.is_turn]
@@ -46,12 +41,7 @@ class threadedClient(Thread):
         self.host = host
         self.port = port
         
-        
         print("Init client")
-        # Thread affichage GUI
-        #tfen = Thread(target = self.affichage_fen, args=(2,))
-        #tfen.start()
-        #self.conn()
         
         tconn = Thread(target = self.conn) #Démarre la connection de la fonction conn sur un thread afin de ne pas freeze le gui
         tconn.start()
@@ -63,16 +53,16 @@ class threadedClient(Thread):
         
         
     def conn(self):
-        """Démarre la connction avec le serveur et transmet le pseudo"""
-        self.clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        """Démarre la connection avec le serveur et transmet le pseudo"""
+        self.clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Crée le socket
         self.clientsocket.settimeout(5) #Timeout de 5s
         print("Socket crée")
         try:
             print("Démarrage connection socket")
-            self.clientsocket.connect((self.host, self.port))
-            self.start_listen()
+            self.clientsocket.connect((self.host, self.port)) #Tentative de connection au serveur
+            self.start_listen() #Si réussi lance un thread d'écoute
             self.clientsocket.send(('<PSEUDO>'+self.pseudo).encode('utf-8'))
-            self.fen.att_joueur()
+            self.fen.att_joueur() #Changement fenetre du GUI
         except socket.error as msg:
             print(f'Socket error : {msg}')
         except ConnectionRefusedError:
@@ -89,36 +79,28 @@ class threadedClient(Thread):
             self.dic[b'GAME_TURN'][0] = False # Termine le tour du client
     
     
-    
     def listen(self):
-        """Fonct lancée en thread pour écouter msg du serv et call fonct correspondante"""
-        #print('Client sur écoute')
-        
-        
+        """Fonction lancée en thread pour écouter msg du serv et call fonct correspondante"""
         try:
-            self.clientsocket.settimeout(None)
+            self.clientsocket.settimeout(None) #Désactive Timeout
             data = self.clientsocket.recv(2048)
-            #print(data)
-            header = data[data.find(b'<')+1 : data.find(b'>')]
-            if header in self.dic:
-                #print('data', data, ' == cond[1]', self.dic[header][1])
-                self.dic[header][2](data)
+            header = data[data.find(b'<')+1 : data.find(b'>')] #Récupère le header du message
+            if header in self.dic: 
+                self.dic[header][2](data) #Appel la fonction correspondante
                 self.dic[header][0] = True
             else : pass
         except socket.timeout: pass
         except : pass
         finally:
-            self.start_listen()
+            self.start_listen() #Relance l'écoute du client
            
-            
-           
-            
+
     def is_turn(self, data):
         self.fen.is_turn = True
         
         
     def gui_update(self, data):
-        """Communique au GUI les cases à modifier"""
+        """Communique au GUI les cases à modifier, liste de case sous la forme de string : [(x.y.val),(x.y.val)...]"""
         self.fen.is_turn = False
         undata = data.decode('utf-8').split(',')[1:]
         self.fen.gui_timer_up(10.0)
@@ -128,7 +110,6 @@ class threadedClient(Thread):
     def start_listen(self):
         """Fonct démarre le thread d'écoute"""
         if self.client_lost[0] != True:
-            #print("start thread listen")
             t = Thread(target = self.listen)
             t.start()
         
@@ -140,23 +121,19 @@ class threadedClient(Thread):
     def lose_game(self, data):
         print('game lost')
         pseudo = data[data.find(b'>')+1:]
-        print(pseudo)
         self.clientsocket.close()
         del self.clientsocket
         self.fen.losemsg(pseudo.decode('utf-8'))
-        
         
     def client_equality(self, data):
         print('game equality')
         self.clientsocket.close()
         del self.clientsocket
         self.fen.equalitymsg()
-        
 
     def update_timer(self, data):
         undata = data.decode('utf-8')[7:]
         self.fen.gui_timer_up(undata)
-
         
     def affichage_fen(self):
         self.fen = GUI(self)
